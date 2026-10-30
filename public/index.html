@@ -2327,7 +2327,7 @@ function sendAIMsg() {
     },
     body: JSON.stringify({
       model: 'openai/gpt-oss-20b',
-      max_tokens: 1024,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: aiSysPrompt + '\n\nUser question: ' + q }]
     })
   })
