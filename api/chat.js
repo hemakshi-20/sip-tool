@@ -1,63 +1,59 @@
-//gemini key update
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  const { messages, system } = req.body;
-
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'messages array required' });
-  }
-
-  // Convert messages to Gemini format
-  const contents = messages.map(function(m) {
-    return {
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    };
-  });
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: system || '' }]
-        },
-        contents: contents,
-        generationConfig: {
-          maxOutputTokens: 300,
-          temperature: 0.7
-        }
-      }),
+    const { messages, system } = req.body;
+    const key = process.env.GEMINI_API_KEY;
+
+    // Build Gemini contents array
+    const contents = (messages || []).map(function(m) {
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      };
     });
 
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(response.status).json({ error: err });
+    // If no messages, add a placeholder
+    if (contents.length === 0) {
+      contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
     }
 
-    const data = await response.json();
-    const text = (
-      data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0] &&
-      data.candidates[0].content.parts[0].text
-    ) || 'No response received.';
+    const body = {
+      contents: contents,
+      generationConfig: { maxOutputTokens: 300 }
+    };
 
-    return res.status(200).json({
-      content: [{ type: 'text', text: text }]
+    // Add system instruction if provided
+    if (system) {
+      body.system_instruction = { parts: [{ text: system }] };
+    }
+
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + key;
+
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
+    const raw = await r.text();
+
+    if (!r.ok) {
+      console.error('Gemini error:', raw);
+      return res.status(500).json({ content: [{ type: 'text', text: 'Gemini error: ' + raw }] });
+    }
+
+    const data = JSON.parse(raw);
+    const text = data.candidates[0].content.parts[0].text || 'No response.';
+    return res.status(200).json({ content: [{ type: 'text', text: text }] });
+
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Handler error:', err);
+    return res.status(500).json({ content: [{ type: 'text', text: 'Error: ' + err.message }] });
   }
-}
+};
