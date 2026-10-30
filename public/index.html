@@ -2327,7 +2327,7 @@ function sendAIMsg() {
     },
     body: JSON.stringify({
       model: 'openai/gpt-oss-20b',
-      max_tokens: 300,
+      max_tokens: 1024,
       messages: [{ role: 'user', content: aiSysPrompt + '\n\nUser question: ' + q }]
     })
   })
@@ -2337,7 +2337,7 @@ function sendAIMsg() {
     var text = 'No response received.';
     try { text = data.choices[0].message.content; } catch(e) { console.log('Groq response:', JSON.stringify(data)); }
     addMsg('ai', text);
-    aiHistory.push({role:'assistant', content: text});
+    aiHistory = [];
   })
   .catch(function(err) {
     if(thinking.parentNode) thinking.remove();
