@@ -2272,8 +2272,8 @@ function evPage(dir) {
 </div>
 
 <script>
-// Paste your Gemini API key between the quotes below
-window.GEMINI_API_KEY = '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';
+// Paste your Groq API key between the quotes below
+window.GROQ_API_KEY = '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';
 
 var aiHistory = [];
 var aiSysPrompt = 'You are a research assistant in a SIP retention tool for the Groww Growth Team. You have data from 1,358 signals across Reddit, Quora, YouTube, Twitter/X and Google Play Store.\n\nKey findings: 8 problem clusters (Mandate Confusion, SIP Dropout Intent 186 signals, Returns Anxiety 103, Financial Literacy Gap 360, Technical/App Issues, Fund Selection Confusion, SIP Amount Decision, Customer Support Failure). 4 user journeys: Anxious Beginner (309 signals), Dip Quitter (109), Life-Event Pauser (66), Silent Drifter (~79% of starters). Top dropout triggers: market dip > life event > low returns expectation > bank mandate issues > app glitches. 63L SIPs started, 50L stopped (AMFI). Dropout is mostly passive. Users go to YouTube/Reddit before the app. Habit framing retains better than returns framing. Top hypotheses: H1 mandate confusion, H2 NACH bounce, H3 portfolio red state.\n\nRULES YOU MUST FOLLOW:\n- Reply in 60 words or fewer. Count carefully.\n- Never use headings, subheadings, bullet points, or bold text.\n- Write in plain conversational prose, one flowing paragraph.\n- Be specific and grounded in the data.\n- Do not recommend specific funds or stocks.';
@@ -2318,79 +2318,36 @@ function sendAIMsg() {
   // Build messages array (system prompt sent separately via API)
   var msgs = aiHistory.slice();
 
-  // Use claude.use('sample') in Claude artifact preview; direct Gemini call elsewhere
-  var isClaudePreview = typeof window.claude !== 'undefined' && window.claude && typeof window.claude.use === 'function';
-
-  if (isClaudePreview) {
-    window.claude.use('sample').then(function(sample) {
-      if (!sample) {
-        if(thinking.parentNode) thinking.remove();
-        addMsg('ai', 'AI unavailable in this preview.');
-        aiLoading = false;
-        document.getElementById('ai-send').disabled = false;
-        return;
-      }
-      var previewMsgs = [{role:'user', content: aiSysPrompt + '\n\n---\n\nUser question: ' + q}];
-      if (aiHistory.length > 1) previewMsgs = msgs.slice();
-      sample(previewMsgs).then(function(result) {
-        if(thinking.parentNode) thinking.remove();
-        var text = result.text || 'Sorry, no response received.';
-        addMsg('ai', text);
-        aiHistory.push({role:'assistant', content: text});
-      }).catch(function() {
-        if(thinking.parentNode) thinking.remove();
-        addMsg('ai', 'Something went wrong. Please try again.');
-      }).finally(function() {
-        aiLoading = false;
-        document.getElementById('ai-send').disabled = false;
-      });
-    });
-  } else {
-    // Direct Gemini call from browser — no server needed
-    var GEMINI_KEY = window.GEMINI_API_KEY || '';
-    var geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY;
-
-    var contents = msgs.map(function(m) {
-      return {
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      };
-    });
-    if (contents.length === 0) {
-      contents = [{ role: 'user', parts: [{ text: q }] }];
-    }
-
-    fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: aiSysPrompt }] },
-        contents: contents,
-        generationConfig: { maxOutputTokens: 300 }
-      })
+  // Direct Groq call
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + window.GROQ_API_KEY
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      max_tokens: 300,
+      messages: [{ role: 'system', content: aiSysPrompt }].concat(msgs)
     })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      if(thinking.parentNode) thinking.remove();
-      var text = 'No response received.';
-      try {
-        text = data.candidates[0].content.parts[0].text;
-      } catch(e) {
-        console.log('Gemini raw response:', JSON.stringify(data));
-      }
-      addMsg('ai', text);
-      aiHistory.push({role:'assistant', content: text});
-    })
-    .catch(function(err) {
-      if(thinking.parentNode) thinking.remove();
-      addMsg('ai', 'Something went wrong. Please try again.');
-      console.error(err);
-    })
-    .finally(function() {
-      aiLoading = false;
-      document.getElementById('ai-send').disabled = false;
-    });
-  }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if(thinking.parentNode) thinking.remove();
+    var text = 'No response received.';
+    try { text = data.choices[0].message.content; } catch(e) { console.log('Groq response:', JSON.stringify(data)); }
+    addMsg('ai', text);
+    aiHistory.push({role:'assistant', content: text});
+  })
+  .catch(function(err) {
+    if(thinking.parentNode) thinking.remove();
+    addMsg('ai', 'Something went wrong. Please try again.');
+    console.error(err);
+  })
+  .finally(function() {
+    aiLoading = false;
+    document.getElementById('ai-send').disabled = false;
+  });
 }
 
 // Auto-resize textarea
