@@ -2328,7 +2328,7 @@ function sendAIMsg() {
     body: JSON.stringify({
       model: 'openai/gpt-oss-20b',
       max_tokens: 300,
-      messages: [{ role: 'system', content: aiSysPrompt }].concat(msgs)
+      messages: [{ role: 'user', content: aiSysPrompt + '\n\nUser question: ' + q }]
     })
   })
   .then(function(res) { return res.json(); })
