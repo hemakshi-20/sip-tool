@@ -1,4 +1,3 @@
-//chatjs
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -10,22 +9,30 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  const groqMessages = [
-    { role: 'system', content: system || '' },
-    ...messages
-  ];
+  // Convert messages to Gemini format
+  const contents = messages.map(function(m) {
+    return {
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    };
+  });
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        max_tokens: 300,
-        messages: groqMessages,
+        system_instruction: {
+          parts: [{ text: system || '' }]
+        },
+        contents: contents,
+        generationConfig: {
+          maxOutputTokens: 300,
+          temperature: 0.7
+        }
       }),
     });
 
@@ -35,7 +42,15 @@ module.exports = async function handler(req, res) {
     }
 
     const data = await response.json();
-    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || 'No response received.';
+    const text = (
+      data.candidates &&
+      data.candidates[0] &&
+      data.candidates[0].content &&
+      data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] &&
+      data.candidates[0].content.parts[0].text
+    ) || 'No response received.';
+
     return res.status(200).json({
       content: [{ type: 'text', text: text }]
     });
