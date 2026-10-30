@@ -2273,7 +2273,7 @@ function evPage(dir) {
 
 <script>
 // Paste your Gemini API key between the quotes below
-window.GEMINI_API_KEY = 'AQ.Ab8RN6I4xSjwNOnw6FZR0Sk0rEI3buG_296sShgmzESb4jHhsA';
+window.GEMINI_API_KEY = 'PASTE_YOUR_KEY_HERE';
 
 var aiHistory = [];
 var aiSysPrompt = 'You are a research assistant in a SIP retention tool for the Groww Growth Team. You have data from 1,358 signals across Reddit, Quora, YouTube, Twitter/X and Google Play Store.\n\nKey findings: 8 problem clusters (Mandate Confusion, SIP Dropout Intent 186 signals, Returns Anxiety 103, Financial Literacy Gap 360, Technical/App Issues, Fund Selection Confusion, SIP Amount Decision, Customer Support Failure). 4 user journeys: Anxious Beginner (309 signals), Dip Quitter (109), Life-Event Pauser (66), Silent Drifter (~79% of starters). Top dropout triggers: market dip > life event > low returns expectation > bank mandate issues > app glitches. 63L SIPs started, 50L stopped (AMFI). Dropout is mostly passive. Users go to YouTube/Reddit before the app. Habit framing retains better than returns framing. Top hypotheses: H1 mandate confusion, H2 NACH bounce, H3 portfolio red state.\n\nRULES YOU MUST FOLLOW:\n- Reply in 60 words or fewer. Count carefully.\n- Never use headings, subheadings, bullet points, or bold text.\n- Write in plain conversational prose, one flowing paragraph.\n- Be specific and grounded in the data.\n- Do not recommend specific funds or stocks.';
@@ -2372,7 +2372,12 @@ function sendAIMsg() {
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if(thinking.parentNode) thinking.remove();
-      var text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) || 'No response received.';
+      var text = 'No response received.';
+      try {
+        text = data.candidates[0].content.parts[0].text;
+      } catch(e) {
+        console.log('Gemini raw response:', JSON.stringify(data));
+      }
       addMsg('ai', text);
       aiHistory.push({role:'assistant', content: text});
     })
